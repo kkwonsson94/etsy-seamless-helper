@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Etsy Seamless Helper 3.0</title>
+  <link rel="stylesheet" href="/public/style.css">
+</head>
+<body>
+  <main class="page">
+    <header class="topbar">
+      <div>
+        <h1>Etsy Seamless Helper 3.0</h1>
+        <p id="status">启动中...</p>
+      </div>
+      <button id="reloadBtn" class="ghost">刷新</button>
+    </header>
+
+    <section class="panel">
+      <h2>路径配置</h2>
+      <div class="field wide">
+        <label>上架根目录</label>
+        <div class="pick-row">
+          <input id="listingRoot" type="text" spellcheck="false" placeholder="例如 G:\印花一店\1A_Flower_and_Waterpaint\上架">
+          <button class="pick-btn" data-target="listingRoot" data-type="folder">选择</button>
+        </div>
+      </div>
+
+      <div class="field wide">
+        <label>Excel 文件</label>
+        <div class="pick-row">
+          <input id="excelPath" type="text" spellcheck="false" placeholder="留空会自动识别根目录下的 *_SEO.xlsx">
+          <button class="pick-btn" data-target="excelPath" data-type="file">选择</button>
+        </div>
+      </div>
+
+      <div class="grid">
+        <div class="field">
+          <label>默认 Shop Section</label>
+          <input id="defaultShopSection" type="text">
+        </div>
+        <div class="field">
+          <label>默认价格</label>
+          <input id="defaultPrice" type="text">
+        </div>
+        <div class="field">
+          <label>默认库存</label>
+          <input id="defaultQuantity" type="text">
+        </div>
+        <div class="field">
+          <label>最多 Listing 图片</label>
+          <input id="maxListingImages" type="number" min="1" max="20">
+        </div>
+        <div class="field">
+          <label>最多下载文件</label>
+          <input id="maxDownloadFiles" type="number" min="1" max="5">
+        </div>
+        <label class="check">
+          <input id="requireVideo" type="checkbox">
+          <span>检查时要求视频存在</span>
+        </label>
+      </div>
+
+      <div class="actions">
+        <button id="saveBtn">保存配置</button>
+        <button id="copyTokenBtn" class="ghost">复制插件 Token</button>
+      </div>
+
+      <div class="resolved">
+        <b>自动识别路径</b>
+        <pre id="resolvedPaths">等待读取...</pre>
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2>SKU 检查</h2>
+      <div class="toolbar">
+        <input id="skuInput" type="text" placeholder="输入 SKU，例如 1A_001">
+        <button id="checkSkuBtn">检查 SKU</button>
+        <button id="loadProductsBtn" class="ghost">读取 SKU 列表</button>
+      </div>
+      <div id="report" class="report">等待检查...</div>
+    </section>
+  </main>
+
+  <script src="/public/app.js"></script>
+</body>
+</html>

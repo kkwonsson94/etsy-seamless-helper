@@ -1,0 +1,12 @@
+{
+  "port": 8788,
+  "listingRoot": "",
+  "excelPath": "",
+  "defaultShopSection": "",
+  "defaultPrice": "2,99",
+  "defaultQuantity": "999",
+  "maxListingImages": 20,
+  "maxDownloadFiles": 5,
+  "requireVideo": true,
+  "token": ""
+}
