@@ -341,9 +341,14 @@ function mimeType(filePath) {
 function uploadDialogFiles(sku, kind) {
   const files = matchFiles(sku);
   let paths = [];
-  if (kind === 'main-image') paths = [files.main].filter(Boolean);
-  else if (kind === 'listing-video') paths = [files.video].filter(Boolean);
-  else if (kind === 'listing-images') paths = files.listingImages;
+  if (kind === 'main-image' || kind === 'media-main-image') paths = [files.main].filter(Boolean);
+  else if (kind === 'listing-media') paths = [files.main, ...files.listingImages, files.video].filter(Boolean);
+  else if (kind === 'listing-video' || kind === 'media-video') paths = [files.video].filter(Boolean);
+  else if (kind === 'listing-images' || kind === 'media-images') paths = files.listingImages;
+  else if (/^media-image-\d+$/.test(kind)) {
+    const index = Number(kind.replace('media-image-', '')) - 1;
+    paths = [files.listingImages[index]].filter(Boolean);
+  }
   else if (kind === 'download-files') paths = files.downloadFiles;
   else throw new Error(`Unknown upload dialog kind: ${kind}`);
   if (!paths.length) throw new Error(`No files matched for ${sku}/${kind}`);
@@ -427,6 +432,26 @@ Add-Type -AssemblyName System.Windows.Forms
   await runPowerShell(script);
 }
 
+async function nativeClick(x, y) {
+  const safeX = Math.round(Number(x));
+  const safeY = Math.round(Number(y));
+  if (!Number.isFinite(safeX) || !Number.isFinite(safeY)) throw new Error('Invalid native click coordinates');
+  const script = `
+$sig = @'
+[DllImport("user32.dll")] public static extern bool SetCursorPos(int X, int Y);
+[DllImport("user32.dll")] public static extern void mouse_event(uint dwFlags, uint dx, uint dy, uint dwData, UIntPtr dwExtraInfo);
+'@
+$u = Add-Type -MemberDefinition $sig -Name NativeClick -Namespace Win32 -PassThru
+$u::SetCursorPos(${safeX}, ${safeY}) | Out-Null
+Start-Sleep -Milliseconds 120
+$u::mouse_event(0x02,0,0,0,[UIntPtr]::Zero)
+Start-Sleep -Milliseconds 80
+$u::mouse_event(0x04,0,0,0,[UIntPtr]::Zero)
+`;
+  await runPowerShell(script);
+  return { x: safeX, y: safeY };
+}
+
 async function handle(req, res) {
   if (req.method === 'OPTIONS') return send(res, 204, '');
 
@@ -487,6 +512,14 @@ async function handle(req, res) {
       await pasteFilesToDialog(paths);
       log(`文件选择框上传 ${body.sku}/${body.kind}: ${paths.map(baseName).join(', ')}`);
       return sendJson(res, { ok: true, files: paths.map(fileInfo) });
+    }
+
+    if (pathname === '/api/native-click' && req.method === 'POST') {
+      if (!hasToken(req)) return sendError(res, new Error('Unauthorized'), 401);
+      const body = JSON.parse(await readBody(req) || '{}');
+      const clicked = await nativeClick(body.x, body.y);
+      log(`Native click: ${clicked.x}, ${clicked.y}`);
+      return sendJson(res, { ok: true, ...clicked });
     }
 
     const fileMatch = pathname.match(/^\/file\/([^/]+)\/([^/]+)$/);

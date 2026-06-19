@@ -1,0 +1,30 @@
+{
+  "manifest_version": 2,
+  "name": "Etsy Seamless Helper",
+  "version": "0.1.0",
+  "description": "Local Etsy listing helper for seamless pattern uploads.",
+  "permissions": [
+    "storage",
+    "activeTab",
+    "https://www.etsy.com/*",
+    "http://127.0.0.1:8788/*",
+    "http://localhost:8788/*"
+  ],
+  "background": {
+    "scripts": [
+      "background.js"
+    ],
+    "persistent": false
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://www.etsy.com/your/shops/me/*"
+      ],
+      "js": [
+        "content.js"
+      ],
+      "run_at": "document_idle"
+    }
+  ]
+}
