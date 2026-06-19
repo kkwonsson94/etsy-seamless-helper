@@ -7,24 +7,67 @@ const childProcess = require('child_process');
 const XLSX = require('xlsx');
 
 const ROOT = __dirname;
-const CONFIG_PATH = path.join(ROOT, 'config.json');
-const EXAMPLE_CONFIG_PATH = path.join(ROOT, 'config.example.json');
+const CONFIG_PATH = process.env.ESH_CONFIG_PATH || path.join(ROOT, 'config.json');
+const EXAMPLE_CONFIG_PATH = process.env.ESH_EXAMPLE_CONFIG_PATH || path.join(ROOT, 'config.example.json');
 const PUBLIC_DIR = path.join(ROOT, 'public');
+const HOST = process.env.ESH_HOST || '127.0.0.1';
 
 const IMAGE_EXTS = new Set(['.jpg', '.jpeg', '.png', '.webp', '.gif']);
 const VIDEO_EXTS = new Set(['.mp4', '.mov', '.webm']);
 const DOWNLOAD_EXTS = new Set(['.jpg', '.jpeg', '.png', '.webp', '.gif', '.zip', '.pdf']);
+const DEFAULT_CONFIG = {
+  port: 8788,
+  listingRoot: '',
+  excelPath: '',
+  defaultShopSection: '',
+  defaultPrice: '2,99',
+  defaultQuantity: '999',
+  maxListingImages: 20,
+  maxDownloadFiles: 5,
+  requireVideo: true,
+  token: ''
+};
+const FOLDER_NAMES = {
+  mainImageFolder: '上架主图',
+  listingFolder: '上架Listing',
+  downloadFolder: '上架文件'
+};
 
 function loadConfig() {
   let config;
   try {
     config = JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf8'));
   } catch {
-    config = JSON.parse(fs.readFileSync(EXAMPLE_CONFIG_PATH, 'utf8'));
+    try {
+      config = JSON.parse(fs.readFileSync(EXAMPLE_CONFIG_PATH, 'utf8'));
+    } catch {
+      config = {};
+    }
   }
-  if (!config.token) config.token = crypto.randomBytes(18).toString('hex');
+  config = normalizeConfig(config);
   saveConfig(config);
   return config;
+}
+
+function normalizeConfig(input = {}) {
+  const next = { ...DEFAULT_CONFIG, ...input };
+  next.port = clampNumber(next.port, 1, 65535, DEFAULT_CONFIG.port);
+  next.listingRoot = String(next.listingRoot || '').trim();
+  next.excelPath = String(next.excelPath || '').trim();
+  next.defaultShopSection = String(next.defaultShopSection || '').trim();
+  next.defaultPrice = String(next.defaultPrice || DEFAULT_CONFIG.defaultPrice).trim();
+  next.defaultQuantity = String(next.defaultQuantity || DEFAULT_CONFIG.defaultQuantity).trim();
+  next.maxListingImages = clampNumber(next.maxListingImages, 1, 20, DEFAULT_CONFIG.maxListingImages);
+  next.maxDownloadFiles = clampNumber(next.maxDownloadFiles, 1, 5, DEFAULT_CONFIG.maxDownloadFiles);
+  next.requireVideo = Boolean(next.requireVideo);
+  if (!next.token) next.token = crypto.randomBytes(18).toString('hex');
+  return next;
+}
+
+function clampNumber(value, min, max, fallback) {
+  const number = Number(value);
+  if (!Number.isFinite(number)) return fallback;
+  return Math.min(max, Math.max(min, Math.trunc(number)));
 }
 
 function saveConfig(nextConfig) {
@@ -122,9 +165,9 @@ function resolvedFolders() {
   return {
     root,
     excel: resolveExcelPath(),
-    mainImageFolder: path.join(root, '上架主图'),
-    listingFolder: path.join(root, '上架Listing'),
-    downloadFolder: path.join(root, '上架文件')
+    mainImageFolder: root ? path.join(root, FOLDER_NAMES.mainImageFolder) : '',
+    listingFolder: root ? path.join(root, FOLDER_NAMES.listingFolder) : '',
+    downloadFolder: root ? path.join(root, FOLDER_NAMES.downloadFolder) : ''
   };
 }
 
@@ -145,9 +188,11 @@ function parseTags(value) {
 
 function readProductsFromExcel() {
   const folders = resolvedFolders();
-  if (!existsFile(folders.excel)) throw new Error(`Excel not found: ${folders.excel || '(empty)'}`);
+  if (!folders.root && !config.excelPath) throw new Error('请先配置上架根目录或 Excel 文件');
+  if (!existsFile(folders.excel)) throw new Error(`找不到 Excel 文件：${folders.excel || config.excelPath || '(empty)'}`);
 
   const workbook = XLSX.readFile(folders.excel);
+  if (!workbook.SheetNames.length) throw new Error(`Excel 没有可读取的工作表：${folders.excel}`);
   const sheet = workbook.Sheets[workbook.SheetNames[0]];
   const rows = XLSX.utils.sheet_to_json(sheet, { defval: '' });
 
@@ -400,7 +445,7 @@ async function handle(req, res) {
 
     if (pathname === '/api/config' && req.method === 'POST') {
       const body = JSON.parse(await readBody(req) || '{}');
-      config = { ...config, ...body };
+      config = normalizeConfig({ ...config, ...body });
       saveConfig(config);
       return sendJson(res, { ...config, resolved: resolvedFolders() });
     }
@@ -473,6 +518,6 @@ function serveStatic(res, filePath) {
   send(res, 200, fs.readFileSync(filePath), { 'Content-Type': type });
 }
 
-http.createServer(handle).listen(config.port, '127.0.0.1', () => {
-  log(`Etsy Seamless Helper 3.0 started: http://127.0.0.1:${config.port}`);
+http.createServer(handle).listen(config.port, HOST, () => {
+  log(`Etsy Seamless Helper 3.0 started: http://${HOST}:${config.port}`);
 });

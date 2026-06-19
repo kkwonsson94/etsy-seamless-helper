@@ -31,12 +31,19 @@ function formatSize(bytes) {
 
 async function api(path, options = {}) {
   const res = await fetch(path, {
-    headers: { 'Content-Type': 'application/json' },
-    ...options
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...(options.headers || {})
+    }
   });
   const data = await res.json().catch(() => ({}));
   if (!res.ok || data.ok === false) throw new Error(data.error || `HTTP ${res.status}`);
   return data;
+}
+
+function showReportError(error) {
+  $('report').innerHTML = `<span class="bad">${escapeHtml(error.message || String(error))}</span>`;
 }
 
 async function loadConfig() {
@@ -54,12 +61,21 @@ async function saveConfig() {
   fields.forEach(id => {
     body[id] = $(id).value.trim();
   });
-  body.maxListingImages = Number(body.maxListingImages || 20);
-  body.maxDownloadFiles = Number(body.maxDownloadFiles || 5);
+  body.maxListingImages = clampNumber(body.maxListingImages, 1, 20, 20);
+  body.maxDownloadFiles = clampNumber(body.maxDownloadFiles, 1, 5, 5);
   body.requireVideo = $('requireVideo').checked;
   config = await api('/api/config', { method: 'POST', body: JSON.stringify(body) });
+  fields.forEach(id => {
+    if ($(id)) $(id).value = config[id] ?? '';
+  });
   $('resolvedPaths').textContent = JSON.stringify(config.resolved || {}, null, 2);
   $('report').innerHTML = '<span class="ok">配置已保存</span>';
+}
+
+function clampNumber(value, min, max, fallback) {
+  const number = Number(value);
+  if (!Number.isFinite(number)) return fallback;
+  return Math.min(max, Math.max(min, Math.trunc(number)));
 }
 
 async function pickPath(event) {
@@ -142,12 +158,14 @@ async function copyToken() {
 }
 
 function wire() {
-  $('saveBtn').addEventListener('click', () => saveConfig().catch(error => $('report').textContent = error.message));
-  $('reloadBtn').addEventListener('click', () => loadConfig().catch(error => $('report').textContent = error.message));
-  $('checkSkuBtn').addEventListener('click', () => checkSku().catch(error => $('report').textContent = error.message));
-  $('loadProductsBtn').addEventListener('click', () => loadProducts().catch(error => $('report').textContent = error.message));
-  $('copyTokenBtn').addEventListener('click', () => copyToken().catch(error => $('report').textContent = error.message));
-  document.querySelectorAll('.pick-btn').forEach(button => button.addEventListener('click', pickPath));
+  $('saveBtn').addEventListener('click', () => saveConfig().catch(showReportError));
+  $('reloadBtn').addEventListener('click', () => loadConfig().catch(showReportError));
+  $('checkSkuBtn').addEventListener('click', () => checkSku().catch(showReportError));
+  $('loadProductsBtn').addEventListener('click', () => loadProducts().catch(showReportError));
+  $('copyTokenBtn').addEventListener('click', () => copyToken().catch(showReportError));
+  document.querySelectorAll('.pick-btn').forEach(button => button.addEventListener('click', event => {
+    pickPath(event).catch(showReportError);
+  }));
 }
 
 wire();
