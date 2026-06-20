@@ -8,6 +8,11 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   return true;
 });
 
+chrome.browserAction.onClicked.addListener(tab => {
+  if (!tab?.id) return;
+  chrome.tabs.sendMessage(tab.id, { target: 'esh-panel', action: 'toggle' });
+});
+
 async function handleHelperMessage(message) {
   const baseUrl = (message.baseUrl || 'http://127.0.0.1:8788').replace(/\/$/, '');
   if (message.action !== 'json') throw new Error('Unknown helper action');
